@@ -1,34 +1,32 @@
-const express = require('express');
-const app = express();
+const http = require('http');
+const url = require('url');
 
-// O Railway injeta a porta automaticamente nesta variável
-const PORT = process.env.PORT || 3000;
+const server = http.createServer((req, res) => {
+  const parsed = url.parse(req.url, true);
 
-app.use(express.json());
-
-// Rota de verificação (o GET que a Meta usa)
-app.get('/webhook', (req, res) => {
-  const verify_token = 'tokenok'; // O mesmo que você colocou no painel da Meta
-  
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-
-  if (mode === 'subscribe' && token === verify_token) {
-    console.log('WEBHOOK_VERIFICADO');
-    return res.status(200).send(challenge);
+  if (req.method === 'GET' && parsed.pathname === '/webhook') {
+    const token = parsed.query['hub.verify_token'];
+    const challenge = parsed.query['hub.challenge'];
+    if (token === 'testeok') {
+      res.writeHead(200);
+      res.end(challenge);
+    } else {
+      res.writeHead(403);
+      res.end('Forbidden');
+    }
+  } else if (req.method === 'POST' && parsed.pathname === '/webhook') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      console.log('=== EVENTO RECEBIDO ===');
+      console.log(body);
+      res.writeHead(200);
+      res.end('OK');
+    });
   } else {
-    return res.sendStatus(403);
+    res.writeHead(200);
+    res.end('Servidor rodando!');
   }
 });
 
-// Rota para receber as mensagens (o POST que a Meta envia depois)
-app.post('/webhook', (req, res) => {
-  console.log('Mensagem recebida:', JSON.stringify(req.body, null, 2));
-  res.sendStatus(200);
-});
-
-// ESSA LINHA É ESSENCIAL: Faz o servidor "acordar" no Railway
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+server.listen(process.env.PORT || 3000);
